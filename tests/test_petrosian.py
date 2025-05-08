@@ -38,7 +38,8 @@ class PetrosianTests(lsst.meas.base.tests.AlgorithmTestCase, lsst.utils.tests.Te
         exposure, catalog = self.dataset.realize(10., schema)
         task.run(catalog, exposure)
         print(catalog[0])
-        self.assertEqual(catalog[0]["ext_PetrosianFlux_instFlux"], 10)
+        print('Exposure: ', exposure)
+        self.assertEqual(catalog[0]["ext_PetrosianFlux_instFlux"], 10.)
 
 class TestMemory(lsst.utils.tests.MemoryTestCase):
     pass

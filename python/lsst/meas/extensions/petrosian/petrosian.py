@@ -21,6 +21,7 @@
 
 __all__ = ["PetrosianPlugin", "PetrosianConfig"]
 
+import logging
 import lsst.meas.base
 
 class PetrosianConfig(lsst.meas.base.SingleFramePluginConfig):
@@ -30,20 +31,62 @@ class PetrosianConfig(lsst.meas.base.SingleFramePluginConfig):
 class PetrosianPlugin(lsst.meas.base.SingleFramePlugin):
     ConfigClass = PetrosianConfig
 
-    def __init__(self, config, name, schema, metadata, **kwargs):
+    def __init__(self, config, name, schema, metadata, logName=None, **kwargs):
+        
+        if logName is None:
+            logName = __name__
+        
         self.fluxkey = lsst.meas.base.FluxResultKey.addFields(schema, 
                                                               name, 
                                                               "Petrosian Flux")
         super().__init__(config, name, schema, metadata)
+    
+        # Define flags for possible issues that might arise during measurement.
+        flagDefs = lsst.meas.base.FlagDefinitionList()
+        self.DIVZERO = flagDefs.add("flag_divzero", "Encountered division by zero")
+        # Embed the flag definitions in the schema using a flag handler.
+        self.flagHandler = lsst.meas.base.FlagHandler.addFields(schema, name, flagDefs)
 
+        self.log = logging.getLogger(self.logName)
+
+    
     @classmethod 
     def getExecutionOrder(cls):
-        return cls.APCORR_ORDER + 1
+        #return cls.APCORR_ORDER + 1
+        return cls.FLUX_ORDER
 
+    def calculatePetrosianFlux(self, aperture, apertureFlux, eta):
+        # place-holder...
+        petrosianFlux = apertureFlux/eta
+        return petrosianFlux
+    
     def measure(self, record, exposure):
-        record[self.fluxkey.getInstFlux()] = 10
-        return
+        # placeholder values to test error handling...
+        aperture = 2.
+        apertureFlux = 10.
+        # Set eta to 0. to test ZeroDivisionError exception...
+        #eta = 0.
+        eta = 1.
+        try:
+            petrosianFlux = self.calculatePetrosianFlux(aperture, apertureFlux, eta)
+        except ZeroDivisionError:
+            raise lsst.meas.base.MeasurementError(self.DIVZERO.doc, self.DIVZERO.number)
+        
+        record[self.fluxkey.getInstFlux()] = petrosianFlux
 
-    def fail(self, record):
-        self.log.error("Failure measuring Petrosian Flux on source %s", record["id"])
+    #def fail(self, record):
+    #    
+    #    self.log.error("Failure measuring Petrosian Flux on source %s", record["id"])
+
+    def fail(self, record, error=None):
+        # Docstring inherited.
+        self.flagHandler.handleFailure(record)
+        if error:
+            #centroid = self.centroidExtractor(record, self.flagHandler)
+            self.log.debug(
+                "Failure measuring Petrosian Flux on source %s: %s",
+                record.getId(),
+                error,
+            )
+
 
